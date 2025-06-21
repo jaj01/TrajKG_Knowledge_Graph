@@ -6,4 +6,3 @@ geopy
 pandas
 numpy
 gdown
-pickle
