@@ -9,32 +9,46 @@ import os
 import pickle
 import gdown
 
-# Google Drive file IDs (replace with your actual file IDs)
+# ----------------- Google Drive File IDs ----------------------
 EMBEDDING_FILE_ID = "1Jnf8Yk_T0S01nUrIeDwx87s1AZCOSnEz"
 CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
+NAME_FILE_ID = "1RcgTHYXm7vqJdgLkaohDGee-3tlLb-lI"
 
-# Download files if not present
+# ----------------- Download Files If Not Present ----------------------
 if not os.path.exists("fused_embedding.pkl"):
-    st.text("Downloading fused_embedding.pkl...")
     gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
 
 if not os.path.exists("dataset_TSMC2014_NYC.csv"):
-    st.text("Downloading dataset_TSMC2014_NYC.csv...")
     gdown.download(f"https://drive.google.com/uc?id={CSV_FILE_ID}", "dataset_TSMC2014_NYC.csv", quiet=False)
 
-# Load data
+if not os.path.exists("poi_names.csv"):
+    gdown.download(f"https://drive.google.com/uc?id={NAME_FILE_ID}", "poi_names.csv", quiet=False)
+
+# ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
 metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
 metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
 metadata_df.columns = ['poi_id', 'category', 'lat', 'lon']
 metadata = metadata_df.drop_duplicates('poi_id').set_index('poi_id').to_dict(orient='index')
 
-# App UI
+# Load POI names
+name_df = pd.read_csv("poi_names.csv")  # has venueId, venueName
+id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
+name_to_id = {v: k for k, v in id_to_name.items()}
+
+# Filter only POIs for which we have embeddings
+valid_names = {pid: id_to_name[pid] for pid in fused_embedding if pid in id_to_name}
+valid_name_to_id = {v: k for k, v in valid_names.items()}
+
+# ----------------- Streamlit UI ----------------------
 st.title("🧭 Explainable POI Recommender")
-selected_poi = st.selectbox("Select a POI", list(fused_embedding.keys()))
+
+selected_name = st.selectbox("Select a POI", list(valid_name_to_id.keys()))
+selected_poi = valid_name_to_id[selected_name]
+
 top_k = st.slider("Number of recommendations", 1, 10, 5)
 
-# Recommendation logic
+# ----------------- Recommendation Logic ----------------------
 def recommend_similar_pois(query_poi_id, top_k):
     query_vec = fused_embedding[query_poi_id].reshape(1, -1)
     poi_ids = list(fused_embedding.keys())
@@ -60,6 +74,7 @@ def recommend_similar_pois(query_poi_id, top_k):
             pass
         results.append({
             "poi_id": poi_id,
+            "name": id_to_name.get(poi_id, poi_id),
             "category": info.get('category', 'Unknown'),
             "lat": info.get('lat'),
             "lon": info.get('lon'),
@@ -68,26 +83,25 @@ def recommend_similar_pois(query_poi_id, top_k):
         })
     return results
 
-# Run recommendations
 recommendations = recommend_similar_pois(selected_poi, top_k)
 
-# Show results
+# ----------------- Show Results ----------------------
 st.subheader("📍 Top Recommendations")
 for rec in recommendations:
-    st.markdown(f"- **{rec['category']}** (Score: {rec['score']}) — _Because {rec['reason']}_")
+    st.markdown(f"- **{rec['name']}** ({rec['category']}) — Score: {rec['score']} — _Because {rec['reason']}_")
     maps_url = f"https://www.google.com/maps/dir/?api=1&origin={metadata[selected_poi]['lat']},{metadata[selected_poi]['lon']}&destination={rec['lat']},{rec['lon']}&travelmode=walking"
     st.markdown(f"[🗺 Directions via Google Maps]({maps_url})")
 
-# Map view
+# ----------------- Map View ----------------------
 st.subheader("🗺 Map View")
 map_center = [metadata[selected_poi]['lat'], metadata[selected_poi]['lon']]
 m = folium.Map(location=map_center, zoom_start=15)
-folium.Marker(location=map_center, popup="You", icon=folium.Icon(color='blue')).add_to(m)
+folium.Marker(location=map_center, popup="Selected POI", icon=folium.Icon(color='blue')).add_to(m)
 
 for rec in recommendations:
     folium.Marker(
         location=[rec['lat'], rec['lon']],
-        popup=f"{rec['category']} — {rec['reason']}",
+        popup=f"{rec['name']} — {rec['reason']}",
         icon=folium.Icon(color='green')
     ).add_to(m)
 
