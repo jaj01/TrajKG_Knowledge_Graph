@@ -10,17 +10,17 @@ import pickle
 import gdown
 
 # Google Drive file IDs (replace with your actual file IDs)
-EMBEDDING_FILE_ID = "your_fused_embedding_file_id"
-CSV_FILE_ID = "your_csv_file_id"
+EMBEDDING_FILE_ID = "1Jnf8Yk_T0S01nUrIeDwx87s1AZCOSnEz"
+CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
 
 # Download files if not present
 if not os.path.exists("fused_embedding.pkl"):
     st.text("Downloading fused_embedding.pkl...")
-    gdown.download(f"https://drive.google.com/file/d/1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg/view?usp=sharing", "fused_embedding.pkl", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
 
 if not os.path.exists("dataset_TSMC2014_NYC.csv"):
     st.text("Downloading dataset_TSMC2014_NYC.csv...")
-    gdown.download(f"https://drive.google.com/file/d/1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg/view?usp=sharing", "dataset_TSMC2014_NYC.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={CSV_FILE_ID}", "dataset_TSMC2014_NYC.csv", quiet=False)
 
 # Load data
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
