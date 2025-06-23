@@ -61,7 +61,7 @@ if use_custom_location:
     user_lon = st.sidebar.number_input("Longitude", value=-73.985, format="%.6f")
 
 top_k = st.sidebar.slider("🔢 # POI Recommendations", 1, 10, 5)
-tourist_k = st.sidebar.slider("🧳 # Tourist Spots", 1, 10, 5)
+tourist_k = st.sidebar.slider("🧳 # Tourist Spots", 1, 15, 5)  # increased max from 10 to 15
 
 # ----------------- UI - POI Selection ----------------------
 st.title("🧭 Explainable POI Recommender")
@@ -122,6 +122,8 @@ def get_tourist_spots_from_poi(poi_id, top_n=5):
     for fid in famous_ids:
         if fid not in metadata:
             continue
+        if 'lat' not in metadata[fid] or 'lon' not in metadata[fid]:
+            continue
         lat, lon = metadata[fid]['lat'], metadata[fid]['lon']
         dist = geodesic((source_lat, source_lon), (lat, lon)).km
         spots.append({
@@ -129,7 +131,7 @@ def get_tourist_spots_from_poi(poi_id, top_n=5):
             "name": id_to_name.get(fid, fid),
             "lat": lat,
             "lon": lon,
-            "category": metadata[fid]['category'],
+            "category": metadata[fid].get('category', 'Unknown'),
             "distance": dist,
             "reason": f"Famous place ({round(dist, 2)} km away)"
         })
