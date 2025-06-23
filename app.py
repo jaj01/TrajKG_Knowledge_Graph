@@ -119,7 +119,9 @@ def get_tourist_spots(top_n=5, user_lat=None, user_lon=None, radius_km=5):
     return [
         {
             "poi_id": row['poi_id'],
-            "name": id_to_name.get(row['poi_id'], row['poi_id']),
+            "name": id_to_name.get(
+                row['poi_id'],
+                f"{row['category']} near ({round(row['lat'], 2)}, {round(row['lon'], 2)})"),
             "category": row['category'],
             "lat": row['lat'],
             "lon": row['lon'],
