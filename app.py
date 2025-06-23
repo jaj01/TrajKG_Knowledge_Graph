@@ -142,7 +142,12 @@ if tourist_mode:
 st.subheader("🗺 Map View")
 map_center = [metadata[selected_poi]['lat'], metadata[selected_poi]['lon']]
 m = folium.Map(location=map_center, zoom_start=15)
-folium.Marker(location=map_center, popup="Selected POI", icon=folium.Icon(color='blue')).add_to(m)
+selected_name_display = id_to_name.get(selected_poi, selected_poi)
+folium.Marker(
+    location=map_center,
+    popup=f"Selected: {selected_name_display}",
+    icon=folium.Icon(color='blue')
+).add_to(m)
 
 for rec in poi_recs:
     folium.Marker(
