@@ -82,7 +82,9 @@ def recommend_similar_pois(query_poi_id, top_k):
             pass
         results.append({
             "poi_id": poi_id,
-            "name": id_to_name.get(poi_id, poi_id),
+            "name": id_to_name.get(
+                poi_id,
+                f"{metadata.get(poi_id, {}).get('category', 'Unknown')} near ({round(metadata.get(poi_id, {}).get('lat', 0), 2)}, {round(metadata.get(poi_id, {}).get('lon', 0), 2)})"),
             "category": info.get('category', 'Unknown'),
             "lat": info.get('lat'),
             "lon": info.get('lon'),
