@@ -10,10 +10,11 @@ import pickle
 import gdown
 
 # ----------------- Google Drive File IDs ----------------------
-EMBEDDING_FILE_ID = "1Jnf8Yk_T0S01nUrIeDwx87s1AZCOSnEz" 
-CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg" 
+EMBEDDING_FILE_ID = "1Jnf8Yk_T0S01nUrIeDwx87s1AZCOSnEz"
+CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
 NAME_FILE_ID = "1RcgTHYXm7vqJdgLkaohDGee-3tlLb-lI"
 FAMOUS_POI_FILE_ID = "1d3S0zbggg_viqwkls3CxBZe5Vks66T4O"
+
 # ----------------- Download Files If Not Present ----------------------
 if not os.path.exists("fused_embedding.pkl"):
     gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
@@ -23,7 +24,7 @@ if not os.path.exists("dataset_TSMC2014_NYC.csv"):
 
 if not os.path.exists("poi_names.csv"):
     gdown.download(f"https://drive.google.com/uc?id={NAME_FILE_ID}", "poi_names.csv", quiet=False)
-    
+
 if not os.path.exists("poi_names_famous_nyc.csv"):
     gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
