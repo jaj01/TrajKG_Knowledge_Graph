@@ -27,7 +27,7 @@ if not os.path.exists("poi_names.csv"):
 if not os.path.exists("poi_names_famous_nyc.csv"):
     gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
- ----------------- Load Files ----------------------
+ #----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
 metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
 metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
