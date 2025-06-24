@@ -27,7 +27,7 @@ if not os.path.exists("poi_names.csv"):
 if not os.path.exists("poi_names_famous_nyc.csv"):
     gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
-
+# ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
 metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
 metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
@@ -61,7 +61,6 @@ if use_custom_location:
     user_lon = st.sidebar.number_input("Longitude", value=-73.985, format="%.6f")
 
 top_k = st.sidebar.slider("🔢 # POI Recommendations", 1, 10, 5)
-tourist_k = st.sidebar.slider("🧳 # Tourist Spots", 1, 15, 5)  # increased max from 10 to 15
 
 # ----------------- UI - POI Selection ----------------------
 st.title("🧭 Explainable POI Recommender")
@@ -115,7 +114,7 @@ for rec in poi_recs:
     st.markdown(f"[🗺 Directions via Google Maps]({maps_url})")
 
 # ----------------- Tourist Recommendations ----------------------
-def get_tourist_spots_from_poi(poi_id, top_n=5):
+def get_all_tourist_spots_from_poi(poi_id):
     source_lat = metadata[poi_id]['lat']
     source_lon = metadata[poi_id]['lon']
     spots = []
@@ -136,17 +135,17 @@ def get_tourist_spots_from_poi(poi_id, top_n=5):
             "reason": f"Famous place ({round(dist, 2)} km away)"
         })
     spots.sort(key=lambda x: x['distance'])
-    return spots[:top_n]
+    return spots
 
 if tourist_mode:
     st.subheader("🧳 Tourist Recommendations")
-    tourist_recs = get_tourist_spots_from_poi(selected_poi, top_n=tourist_k)
+    tourist_recs = get_all_tourist_spots_from_poi(selected_poi)
     if not tourist_recs:
         st.info("No tourist attractions found near your location.")
     for rec in tourist_recs:
         st.markdown(f"• **{rec['name']}** — {rec['category']} (_{rec['reason']}_)")
-        url = f"https://www.google.com/maps/search/?api=1&query={rec['lat']},{rec['lon']}"
-        st.markdown(f"[📍 View on Map]({url})")
+        url = f"https://www.google.com/maps/dir/?api=1&origin={metadata[selected_poi]['lat']},{metadata[selected_poi]['lon']}&destination={rec['lat']},{rec['lon']}&travelmode=walking"
+        st.markdown(f"[📍 Directions via Google Maps]({url})")
 
 # ----------------- Map View ----------------------
 st.subheader("🗺 Map View")
