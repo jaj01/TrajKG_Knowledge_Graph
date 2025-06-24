@@ -27,7 +27,7 @@ if not os.path.exists("poi_names.csv"):
 if not os.path.exists("poi_names_famous_nyc.csv"):
     gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
- #----------------- Load Files ----------------------
+# ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
 metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
 metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
@@ -123,21 +123,22 @@ def get_all_tourist_spots_from_poi(poi_id):
             continue
         entry = metadata[fid]
         lat, lon = entry.get('lat'), entry.get('lon')
-        if pd.isna(lat) or pd.isna(lon):
+        if lat is None or lon is None:
             continue
         try:
             dist = geodesic((source_lat, source_lon), (lat, lon)).km
+            if dist >= 0:
+                spots.append({
+                    "poi_id": fid,
+                    "name": id_to_name.get(fid, fid),
+                    "lat": lat,
+                    "lon": lon,
+                    "category": entry.get('category', 'Unknown'),
+                    "distance": dist,
+                    "reason": f"Famous place ({round(dist, 2)} km away)"
+                })
         except:
             continue
-        spots.append({
-            "poi_id": fid,
-            "name": id_to_name.get(fid, fid),
-            "lat": lat,
-            "lon": lon,
-            "category": entry.get('category', 'Unknown'),
-            "distance": dist,
-            "reason": f"Famous place ({round(dist, 2)} km away)"
-        })
     spots.sort(key=lambda x: x['distance'])
     return spots
 
