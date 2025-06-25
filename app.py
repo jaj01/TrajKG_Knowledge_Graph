@@ -48,20 +48,19 @@ if os.path.exists("poi_names_famous_nyc.csv"):
 
     id_to_name.update(dict(zip(famous_df[pid_col], famous_df[name_col])))
 
-    # Safe selection of lat/lon/category columns
     col_map = {
         'venueCategory': 'category',
         'latitude': 'lat',
         'longitude': 'lon'
     }
-    safe_cols = [col for col in col_map if col in famous_df.columns]
+    reverse_col_map = {v: k for k, v in col_map.items()}
+    safe_cols = [reverse_col_map[col] for col in ['category', 'lat', 'lon'] if reverse_col_map.get(col) in famous_df.columns]
+
     if safe_cols:
-        metadata.update(
-            famous_df[[pid_col] + safe_cols]
-            .rename(columns={**col_map, pid_col: 'poi_id'})
-            .set_index('poi_id')
-            .to_dict(orient='index')
-        )
+        subset_df = famous_df[[pid_col] + safe_cols].copy()
+        subset_df = subset_df.rename(columns={col: col_map[col] for col in safe_cols})
+        subset_df = subset_df.rename(columns={pid_col: 'poi_id'})
+        metadata.update(subset_df.set_index('poi_id').to_dict(orient='index'))
 
     famous_ids = famous_df[pid_col].tolist()
 else:
