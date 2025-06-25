@@ -42,8 +42,9 @@ id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
 # Load famous POIs and merge
 if os.path.exists("poi_names_famous_nyc.csv"):
     famous_df = pd.read_csv("poi_names_famous_nyc.csv")
-    id_to_name.update(dict(zip(famous_df['venueId'], famous_df['venueName'])))
-    famous_ids = famous_df['venueId'].tolist()
+    id_to_name.update(dict(zip(famous_df['poi_id'], famous_df['venueName'])))
+    metadata.update(famous_df.set_index('poi_id')[['category', 'lat', 'lon']].to_dict(orient='index'))
+    famous_ids = famous_df['poi_id'].tolist()
 else:
     famous_ids = []
 
@@ -124,22 +125,21 @@ def get_all_tourist_spots_from_poi(poi_id):
             continue
         entry = metadata[fid]
         lat, lon = entry.get('lat'), entry.get('lon')
-        if lat is None or lon is None:
+        if pd.isna(lat) or pd.isna(lon):
             continue
         try:
             dist = geodesic((source_lat, source_lon), (lat, lon)).km
-            if dist >= 0:
-                spots.append({
-                    "poi_id": fid,
-                    "name": id_to_name.get(fid, fid),
-                    "lat": lat,
-                    "lon": lon,
-                    "category": entry.get('category', 'Unknown'),
-                    "distance": dist,
-                    "reason": f"Famous place ({round(dist, 2)} km away)"
-                })
         except:
             continue
+        spots.append({
+            "poi_id": fid,
+            "name": id_to_name.get(fid, fid),
+            "lat": lat,
+            "lon": lon,
+            "category": entry.get('category', 'Unknown'),
+            "distance": dist,
+            "reason": f"Famous place ({round(dist, 2)} km away)"
+        })
     spots.sort(key=lambda x: x['distance'])
     return spots
 
