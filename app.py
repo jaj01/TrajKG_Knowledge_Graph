@@ -17,21 +17,20 @@ FAMOUS_POI_FILE_ID = "1d3S0zbggg_viqwkls3CxBZe5Vks66T4O"
 
 # ----------------- Download Files If Not Present ----------------------
 if not os.path.exists("fused_embedding.pkl"):
-    gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id=" + EMBEDDING_FILE_ID, "fused_embedding.pkl", quiet=False)
 
 if not os.path.exists("dataset_TSMC2014_NYC.csv"):
-    gdown.download(f"https://drive.google.com/uc?id={CSV_FILE_ID}", "dataset_TSMC2014_NYC.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id=" + CSV_FILE_ID, "dataset_TSMC2014_NYC.csv", quiet=False)
 
 if not os.path.exists("poi_names.csv"):
-    gdown.download(f"https://drive.google.com/uc?id={NAME_FILE_ID}", "poi_names.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id=" + NAME_FILE_ID, "poi_names.csv", quiet=False)
 
 if not os.path.exists("poi_names_famous_nyc.csv"):
-    gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id=" + FAMOUS_POI_FILE_ID, "poi_names_famous_nyc.csv", quiet=False)
 
 # ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
-metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
-metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
+metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")[['venueId', 'venueCategory', 'latitude', 'longitude']]
 metadata_df.columns = ['poi_id', 'category', 'lat', 'lon']
 metadata = metadata_df.drop_duplicates('poi_id').set_index('poi_id').to_dict(orient='index')
 
@@ -39,57 +38,57 @@ metadata = metadata_df.drop_duplicates('poi_id').set_index('poi_id').to_dict(ori
 name_df = pd.read_csv("poi_names.csv")
 id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
 
-# Load famous POIs and merge
+# Load famous POIs and enrich metadata
+famous_ids = []
 if os.path.exists("poi_names_famous_nyc.csv"):
     famous_df = pd.read_csv("poi_names_famous_nyc.csv")
-    col_names = list(famous_df.columns)
-    pid_col = [col for col in col_names if "venueId" in col or "poi_id" in col][0]
-    name_col = [col for col in col_names if "venueName" in col or "name" in col][0]
-
+    pid_col = [col for col in famous_df.columns if "venueId" in col or "poi_id" in col][0]
+    name_col = [col for col in famous_df.columns if "venueName" in col or "name" in col][0]
+    
     id_to_name.update(dict(zip(famous_df[pid_col], famous_df[name_col])))
 
-    col_map = {
-        'venueCategory': 'category',
-        'latitude': 'lat',
-        'longitude': 'lon'
-    }
-    reverse_col_map = {v: k for k, v in col_map.items()}
-    safe_cols = [reverse_col_map[col] for col in ['category', 'lat', 'lon'] if reverse_col_map.get(col) in famous_df.columns]
+    col_map = {'venueCategory': 'category', 'latitude': 'lat', 'longitude': 'lon'}
+    reverse_map = {v: k for k, v in col_map.items()}
+    valid_cols = [reverse_map[c] for c in ['category', 'lat', 'lon'] if reverse_map.get(c) in famous_df.columns]
 
-    if safe_cols:
-        subset_df = famous_df[[pid_col] + safe_cols].copy()
-        subset_df = subset_df.rename(columns={col: col_map[col] for col in safe_cols})
-        subset_df = subset_df.rename(columns={pid_col: 'poi_id'})
-        metadata.update(subset_df.set_index('poi_id').to_dict(orient='index'))
+    if valid_cols:
+        enriched_df = famous_df[[pid_col] + valid_cols].copy()
+        enriched_df.rename(columns={c: col_map[c] for c in valid_cols}, inplace=True)
+        enriched_df.rename(columns={pid_col: 'poi_id'}, inplace=True)
+        metadata.update(enriched_df.set_index('poi_id').to_dict(orient='index'))
 
     famous_ids = famous_df[pid_col].tolist()
-else:
-    famous_ids = []
+
+# ----------------- UI Setup ----------------------
+st.title("📍 POI Recommendation System")
 
 name_to_id = {v: k for k, v in id_to_name.items()}
 valid_names = {pid: id_to_name[pid] for pid in fused_embedding if pid in id_to_name}
 valid_name_to_id = {v: k for k, v in valid_names.items()}
 
-# ----------------- Map View ----------------------
-st.subheader("🗺 Map View")
-map_center = [metadata[selected_poi]['lat'], metadata[selected_poi]['lon']]
-m = folium.Map(location=map_center, zoom_start=15)
-selected_name_display = id_to_name.get(selected_poi, selected_poi)
-folium.Marker(location=map_center, popup=f"Selected: {selected_name_display}", icon=folium.Icon(color='blue')).add_to(m)
+selected_name = st.selectbox("Select a POI", sorted(valid_name_to_id.keys()))
 
-for rec in poi_recs:
-    folium.Marker(
-        location=[rec['lat'], rec['lon']],
-        popup=f"{rec['name']} — {rec['reason']}",
-        icon=folium.Icon(color='green')
-    ).add_to(m)
+if selected_name:
+    poi_id = valid_name_to_id[selected_name]
+    user_lat = metadata[poi_id]['lat']
+    user_lon = metadata[poi_id]['lon']
 
-if tourist_mode:
-    for rec in tourist_recs:
-        folium.Marker(
-            location=[rec['lat'], rec['lon']],
-            popup=f"{rec['name']} — {rec['category']}",
-            icon=folium.Icon(color='orange', icon="info-sign")
-        ).add_to(m)
+    # ----------------- Nearest Famous POI Recommendations ----------------------
+    def get_tourist_places(poi_id, top_k=5):
+        source = (metadata[poi_id]['lat'], metadata[poi_id]['lon'])
+        places = []
+        for fid in famous_ids:
+            if fid not in metadata:
+                continue
+            dest = (metadata[fid]['lat'], metadata[fid]['lon'])
+            dist = geodesic(source, dest).km
+            places.append((fid, dist))
+        return sorted(places, key=lambda x: x[1])[:top_k]
 
-st_folium(m, width=700, height=500)
+    st.markdown("## 🧳 Famous Tourist Places Nearby")
+    tourist_recs = get_tourist_places(poi_id)
+
+    for tid, dist in tourist_recs:
+        t_name = id_to_name.get(tid, tid)
+        maps_url = f"https://www.google.com/maps/dir/{user_lat},{user_lon}/{metadata[tid]['lat']},{metadata[tid]['lon']}"
+        st.markdown(f"- **{t_name}** — {metadata[tid]['category']} (~{dist:.2f} km)  \n  [🧭 Directions]({maps_url})")
