@@ -70,6 +70,27 @@ name_to_id = {v: k for k, v in id_to_name.items()}
 valid_names = {pid: id_to_name[pid] for pid in fused_embedding if pid in id_to_name}
 valid_name_to_id = {v: k for k, v in valid_names.items()}
 
+# ----------------- Hardcoded Famous POIs ----------------------
+famous_pois = [
+    {"name": "Statue of Liberty", "category": "Monument", "lat": 40.6892, "lon": -74.0445},
+    {"name": "Central Park", "category": "Park", "lat": 40.7829, "lon": -73.9654},
+    {"name": "Empire State Building", "category": "Skyscraper", "lat": 40.7484, "lon": -73.9857},
+    {"name": "Times Square", "category": "Plaza", "lat": 40.7580, "lon": -73.9855},
+    {"name": "Brooklyn Bridge", "category": "Bridge", "lat": 40.7061, "lon": -73.9969},
+    {"name": "Rockefeller Center", "category": "Landmark", "lat": 40.7587, "lon": -73.9787},
+    {"name": "Museum of Modern Art", "category": "Museum", "lat": 40.7614, "lon": -73.9776},
+    {"name": "One World Observatory", "category": "Observation Deck", "lat": 40.7130, "lon": -74.0132}
+]
+
+# ----------------- Function to Get Nearest Famous POIs ----------------------
+def get_nearest_famous_pois(user_lat, user_lon, top_k=5):
+    ranked = []
+    for poi in famous_pois:
+        dist_km = geodesic((user_lat, user_lon), (poi["lat"], poi["lon"])).km
+        ranked.append((poi, dist_km))
+    ranked.sort(key=lambda x: x[1])
+    return ranked[:top_k]
+
 # ----------------- Sidebar Settings ----------------------
 st.sidebar.title("⚙️ Settings")
 tourist_mode = st.sidebar.checkbox("🧳 Tourist Mode", value=True)
@@ -134,42 +155,15 @@ for rec in poi_recs:
     st.markdown(f"[🗺 Directions via Google Maps]({maps_url})")
 
 # ----------------- Tourist Recommendations ----------------------
-def get_all_tourist_spots_from_poi(poi_id):
-    source_lat = metadata[poi_id]['lat']
-    source_lon = metadata[poi_id]['lon']
-    spots = []
-    for fid in famous_ids:
-        if fid not in metadata:
-            continue
-        entry = metadata[fid]
-        lat, lon = entry.get('lat'), entry.get('lon')
-        if pd.isna(lat) or pd.isna(lon):
-            continue
-        try:
-            dist = geodesic((source_lat, source_lon), (lat, lon)).km
-        except:
-            continue
-        spots.append({
-            "poi_id": fid,
-            "name": id_to_name.get(fid, fid),
-            "lat": lat,
-            "lon": lon,
-            "category": entry.get('category', 'Unknown'),
-            "distance": dist,
-            "reason": f"Famous place ({round(dist, 2)} km away)"
-        })
-    spots.sort(key=lambda x: x['distance'])
-    return spots
+# ----------------- Tourist Recommendation Section ----------------------
+st.markdown("## 🧳 Tourist Recommendations")
 
-if tourist_mode:
-    st.subheader("🧳 Tourist Recommendations")
-    tourist_recs = get_all_tourist_spots_from_poi(selected_poi)
-    if not tourist_recs:
-        st.info("No tourist attractions found near your location.")
-    for rec in tourist_recs:
-        st.markdown(f"• **{rec['name']}** — {rec['category']} (_{rec['reason']}_)")
-        url = f"https://www.google.com/maps/dir/?api=1&origin={metadata[selected_poi]['lat']},{metadata[selected_poi]['lon']}&destination={rec['lat']},{rec['lon']}&travelmode=walking"
-        st.markdown(f"[📍 Directions via Google Maps]({url})")
+nearest = get_nearest_famous_pois(user_lat, user_lon, top_k=5)
+
+for poi, dist in nearest:
+    st.markdown(f"• **{poi['name']}** — {poi['category']} *(Famous place ~{dist:.2f} km away)*")
+    maps_url = f"https://www.google.com/maps/dir/{user_lat},{user_lon}/{poi['lat']},{poi['lon']}"
+    st.markdown(f"📍 [Directions via Google Maps]({maps_url})")
 
 # ----------------- Map View ----------------------
 st.subheader("🗺 Map View")
