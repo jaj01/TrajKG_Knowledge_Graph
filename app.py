@@ -5,11 +5,12 @@ from streamlit_folium import st_folium
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.distance import geodesic
 import numpy as np
-import osMore actions
+import os
 import pickle
 import gdown
 
 # ----------------- Google Drive File IDs ----------------------
+
 EMBEDDING_FILE_ID = "1QewYv0pvlxdF8pYcjfSXMZnTEhAz09wq"
 CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
 NAME_FILE_ID = "1Wb7C8c-ZUvijet2q-Y82Cmb646_jWkZc"
