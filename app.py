@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as stMore actions
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
@@ -14,23 +14,23 @@ EMBEDDING_FILE_ID = "1QewYv0pvlxdF8pYcjfSXMZnTEhAz09wq"
 CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
 NAME_FILE_ID = "1Wb7C8c-ZUvijet2q-Y82Cmb646_jWkZc"
 FAMOUS_POI_FILE_ID = "1d3S0zbggg_viqwkls3CxBZe5Vks66T4O"
-
 # ----------------- Download Files If Not Present ----------------------
 if not os.path.exists("fused_embedding.pkl"):
-    gdown.download(f"https://drive.google.com/uc?id=" + EMBEDDING_FILE_ID, "fused_embedding.pkl", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
 
 if not os.path.exists("dataset_TSMC2014_NYC.csv"):
-    gdown.download(f"https://drive.google.com/uc?id=" + CSV_FILE_ID, "dataset_TSMC2014_NYC.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={CSV_FILE_ID}", "dataset_TSMC2014_NYC.csv", quiet=False)
 
 if not os.path.exists("poi_names.csv"):
-    gdown.download(f"https://drive.google.com/uc?id=" + NAME_FILE_ID, "poi_names.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={NAME_FILE_ID}", "poi_names.csv", quiet=False)
 
 if not os.path.exists("poi_names_famous_nyc.csv"):
-    gdown.download(f"https://drive.google.com/uc?id=" + FAMOUS_POI_FILE_ID, "poi_names_famous_nyc.csv", quiet=False)
+    gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
 # ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
-metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")[['venueId', 'venueCategory', 'latitude', 'longitude']]
+metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
+metadata_df = metadata_df[['venueId', 'venueCategory', 'latitude', 'longitude']]
 metadata_df.columns = ['poi_id', 'category', 'lat', 'lon']
 metadata = metadata_df.drop_duplicates('poi_id').set_index('poi_id').to_dict(orient='index')
 
@@ -38,57 +38,147 @@ metadata = metadata_df.drop_duplicates('poi_id').set_index('poi_id').to_dict(ori
 name_df = pd.read_csv("poi_names.csv")
 id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
 
-# Load famous POIs and enrich metadata
-famous_ids = []
+# Load famous POIs and merge
 if os.path.exists("poi_names_famous_nyc.csv"):
     famous_df = pd.read_csv("poi_names_famous_nyc.csv")
-    pid_col = [col for col in famous_df.columns if "venueId" in col or "poi_id" in col][0]
-    name_col = [col for col in famous_df.columns if "venueName" in col or "name" in col][0]
-    
+    id_to_name.update(dict(zip(famous_df['poi_id'], famous_df['venueName'])))
+    metadata.update(famous_df.set_index('poi_id')[['category', 'lat', 'lon']].to_dict(orient='index'))
+    famous_ids = famous_df['poi_id'].tolist()
+    col_names = list(famous_df.columns)
+    pid_col = [col for col in col_names if "venueId" in col or "poi_id" in col][0]
+    name_col = [col for col in col_names if "venueName" in col or "name" in col][0]
+
     id_to_name.update(dict(zip(famous_df[pid_col], famous_df[name_col])))
-
-    col_map = {'venueCategory': 'category', 'latitude': 'lat', 'longitude': 'lon'}
-    reverse_map = {v: k for k, v in col_map.items()}
-    valid_cols = [reverse_map[c] for c in ['category', 'lat', 'lon'] if reverse_map.get(c) in famous_df.columns]
-
-    if valid_cols:
-        enriched_df = famous_df[[pid_col] + valid_cols].copy()
-        enriched_df.rename(columns={c: col_map[c] for c in valid_cols}, inplace=True)
-        enriched_df.rename(columns={pid_col: 'poi_id'}, inplace=True)
-        metadata.update(enriched_df.set_index('poi_id').to_dict(orient='index'))
-
+    metadata.update(famous_df.set_index(pid_col)[['venueCategory', 'latitude', 'longitude']].rename(columns={'venueCategory': 'category', 'latitude': 'lat', 'longitude': 'lon'}).to_dict(orient='index'))
     famous_ids = famous_df[pid_col].tolist()
-
-# ----------------- UI Setup ----------------------
-st.title("📍 POI Recommendation System")
+else:
+    famous_ids = []
 
 name_to_id = {v: k for k, v in id_to_name.items()}
 valid_names = {pid: id_to_name[pid] for pid in fused_embedding if pid in id_to_name}
 valid_name_to_id = {v: k for k, v in valid_names.items()}
 
-selected_name = st.selectbox("Select a POI", sorted(valid_name_to_id.keys()))
+# ----------------- Sidebar Settings ----------------------
+st.sidebar.title("⚙️ Settings")
+tourist_mode = st.sidebar.checkbox("🧳 Tourist Mode", value=True)
+use_custom_location = st.sidebar.checkbox("📍 Use My Location")
 
-if selected_name:
-    poi_id = valid_name_to_id[selected_name]
-    user_lat = metadata[poi_id]['lat']
-    user_lon = metadata[poi_id]['lon']
+user_lat, user_lon = None, None
+if use_custom_location:
+    user_lat = st.sidebar.number_input("Latitude", value=40.758, format="%.6f")
+    user_lon = st.sidebar.number_input("Longitude", value=-73.985, format="%.6f")
 
-    # ----------------- Nearest Famous POI Recommendations ----------------------
-    def get_tourist_places(poi_id, top_k=5):
-        source = (metadata[poi_id]['lat'], metadata[poi_id]['lon'])
-        places = []
-        for fid in famous_ids:
-            if fid not in metadata:
-                continue
-            dest = (metadata[fid]['lat'], metadata[fid]['lon'])
-            dist = geodesic(source, dest).km
-            places.append((fid, dist))
-        return sorted(places, key=lambda x: x[1])[:top_k]
+top_k = st.sidebar.slider("🔢 # POI Recommendations", 1, 10, 5)
 
-    st.markdown("## 🧳 Famous Tourist Places Nearby")
-    tourist_recs = get_tourist_places(poi_id)
+# ----------------- UI - POI Selection ----------------------
+st.title("🧭 Explainable POI Recommender")
+selected_name = st.selectbox("Select a POI", list(valid_name_to_id.keys()))
+selected_poi = valid_name_to_id[selected_name]
 
-    for tid, dist in tourist_recs:
-        t_name = id_to_name.get(tid, tid)
-        maps_url = f"https://www.google.com/maps/dir/{user_lat},{user_lon}/{metadata[tid]['lat']},{metadata[tid]['lon']}"
-        st.markdown(f"- **{t_name}** — {metadata[tid]['category']} (~{dist:.2f} km)  \n  [🧭 Directions]({maps_url})")
+# ----------------- Similar POI Recommendations ----------------------
+def recommend_similar_pois(query_poi_id, top_k):
+    query_vec = fused_embedding[query_poi_id].reshape(1, -1)
+    poi_ids = list(fused_embedding.keys())
+    vectors = np.array([fused_embedding[pid] for pid in poi_ids])
+    sims = cosine_similarity(query_vec, vectors)[0]
+    top_indices = sims.argsort()[::-1][1:top_k+1]
+
+    results = []
+    for idx in top_indices:
+        poi_id = poi_ids[idx]
+        info = metadata.get(poi_id, {})
+        reason = []
+        if metadata.get(query_poi_id, {}).get("category") == info.get("category"):
+            reason.append("same category")
+        try:
+            dist = geodesic(
+                (metadata[query_poi_id]['lat'], metadata[query_poi_id]['lon']),
+                (info['lat'], info['lon'])
+            ).km
+            if dist < 1.0:
+                reason.append("nearby")
+        except:
+            pass
+        results.append({
+            "poi_id": poi_id,
+            "name": id_to_name.get(
+                poi_id,
+                f"{info.get('category', 'Unknown')} near ({round(info.get('lat', 0), 2)}, {round(info.get('lon', 0), 2)})"
+            ),
+            "category": info.get('category', 'Unknown'),
+            "lat": info.get('lat'),
+            "lon": info.get('lon'),
+            "score": round(sims[idx], 3),
+            "reason": ", ".join(reason) if reason else "embedding similarity"
+        })
+    return results
+
+poi_recs = recommend_similar_pois(selected_poi, top_k)
+
+st.subheader("📍 Similar POI Recommendations")
+for rec in poi_recs:
+    st.markdown(f"• **{rec['name']}** ({rec['category']}) — Score: {rec['score']} — _Because {rec['reason']}_")
+    maps_url = f"https://www.google.com/maps/dir/?api=1&origin={metadata[selected_poi]['lat']},{metadata[selected_poi]['lon']}&destination={rec['lat']},{rec['lon']}&travelmode=walking"
+    st.markdown(f"[🗺 Directions via Google Maps]({maps_url})")
+
+# ----------------- Tourist Recommendations ----------------------
+def get_all_tourist_spots_from_poi(poi_id):
+    source_lat = metadata[poi_id]['lat']
+    source_lon = metadata[poi_id]['lon']
+    spots = []
+    for fid in famous_ids:
+        if fid not in metadata:
+            continue
+        entry = metadata[fid]
+        lat, lon = entry.get('lat'), entry.get('lon')
+        if pd.isna(lat) or pd.isna(lon):
+            continue
+        try:
+            dist = geodesic((source_lat, source_lon), (lat, lon)).km
+        except:
+            continue
+        spots.append({
+            "poi_id": fid,
+            "name": id_to_name.get(fid, fid),
+            "lat": lat,
+            "lon": lon,
+            "category": entry.get('category', 'Unknown'),
+            "distance": dist,
+            "reason": f"Famous place ({round(dist, 2)} km away)"
+        })
+    spots.sort(key=lambda x: x['distance'])
+    return spots
+
+if tourist_mode:
+    st.subheader("🧳 Tourist Recommendations")
+    tourist_recs = get_all_tourist_spots_from_poi(selected_poi)
+    if not tourist_recs:
+        st.info("No tourist attractions found near your location.")
+    for rec in tourist_recs:
+        st.markdown(f"• **{rec['name']}** — {rec['category']} (_{rec['reason']}_)")
+        url = f"https://www.google.com/maps/dir/?api=1&origin={metadata[selected_poi]['lat']},{metadata[selected_poi]['lon']}&destination={rec['lat']},{rec['lon']}&travelmode=walking"
+        st.markdown(f"[📍 Directions via Google Maps]({url})")
+
+# ----------------- Map View ----------------------
+st.subheader("🗺 Map View")
+map_center = [metadata[selected_poi]['lat'], metadata[selected_poi]['lon']]
+m = folium.Map(location=map_center, zoom_start=15)
+selected_name_display = id_to_name.get(selected_poi, selected_poi)
+folium.Marker(location=map_center, popup=f"Selected: {selected_name_display}", icon=folium.Icon(color='blue')).add_to(m)
+
+for rec in poi_recs:
+    folium.Marker(
+        location=[rec['lat'], rec['lon']],
+        popup=f"{rec['name']} — {rec['reason']}",
+        icon=folium.Icon(color='green')
+    ).add_to(m)
+
+if tourist_mode:
+    for rec in tourist_recs:
+        folium.Marker(
+            location=[rec['lat'], rec['lon']],
+            popup=f"{rec['name']} — {rec['category']}",
+            icon=folium.Icon(color='orange', icon="info-sign")
+        ).add_to(m)
+
+st_folium(m, width=700, height=500)
