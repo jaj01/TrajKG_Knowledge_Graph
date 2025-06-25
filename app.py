@@ -28,6 +28,19 @@ if not os.path.exists("poi_names.csv"):
 if not os.path.exists("poi_names_famous_nyc.csv"):
     gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
 
+# ----------------- Download Files If Not Present ----------------------
+if not os.path.exists("fused_embedding.pkl"):
+    gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
+
+if not os.path.exists("dataset_TSMC2014_NYC.csv"):
+    gdown.download(f"https://drive.google.com/uc?id={CSV_FILE_ID}", "dataset_TSMC2014_NYC.csv", quiet=False)
+
+if not os.path.exists("poi_names.csv"):
+    gdown.download(f"https://drive.google.com/uc?id={NAME_FILE_ID}", "poi_names.csv", quiet=False)
+
+if not os.path.exists("poi_names_famous_nyc.csv"):
+    gdown.download(f"https://drive.google.com/uc?id={FAMOUS_POI_FILE_ID}", "poi_names_famous_nyc.csv", quiet=False)
+
 # ----------------- Load Files ----------------------
 fused_embedding = pickle.load(open("fused_embedding.pkl", "rb"))
 metadata_df = pd.read_csv("dataset_TSMC2014_NYC.csv")
@@ -42,9 +55,13 @@ id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
 # Load famous POIs and merge
 if os.path.exists("poi_names_famous_nyc.csv"):
     famous_df = pd.read_csv("poi_names_famous_nyc.csv")
-    id_to_name.update(dict(zip(famous_df['poi_id'], famous_df['venueName'])))
-    metadata.update(famous_df.set_index('poi_id')[['category', 'lat', 'lon']].to_dict(orient='index'))
-    famous_ids = famous_df['poi_id'].tolist()
+    col_names = list(famous_df.columns)
+    pid_col = [col for col in col_names if "venueId" in col or "poi_id" in col][0]
+    name_col = [col for col in col_names if "venueName" in col or "name" in col][0]
+
+    id_to_name.update(dict(zip(famous_df[pid_col], famous_df[name_col])))
+    metadata.update(famous_df.set_index(pid_col)[['venueCategory', 'latitude', 'longitude']].rename(columns={'venueCategory': 'category', 'latitude': 'lat', 'longitude': 'lon'}).to_dict(orient='index'))
+    famous_ids = famous_df[pid_col].tolist()
 else:
     famous_ids = []
 
