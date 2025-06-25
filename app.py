@@ -10,9 +10,9 @@ import pickle
 import gdown
 
 # ----------------- Google Drive File IDs ----------------------
-EMBEDDING_FILE_ID = "1Jnf8Yk_T0S01nUrIeDwx87s1AZCOSnEz"
+EMBEDDING_FILE_ID = "1QewYv0pvlxdF8pYcjfSXMZnTEhAz09wq"
 CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
-NAME_FILE_ID = "1RcgTHYXm7vqJdgLkaohDGee-3tlLb-lI"
+NAME_FILE_ID = "1Wb7C8c-ZUvijet2q-Y82Cmb646_jWkZc"
 FAMOUS_POI_FILE_ID = "1d3S0zbggg_viqwkls3CxBZe5Vks66T4O"
 
 # ----------------- Download Files If Not Present ----------------------
