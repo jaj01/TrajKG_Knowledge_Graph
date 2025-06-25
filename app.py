@@ -1,11 +1,11 @@
-import streamlit as stMore actions
+import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
 from sklearn.metrics.pairwise import cosine_similarity
 from geopy.distance import geodesic
 import numpy as np
-import os
+import osMore actions
 import pickle
 import gdown
 
@@ -14,6 +14,7 @@ EMBEDDING_FILE_ID = "1QewYv0pvlxdF8pYcjfSXMZnTEhAz09wq"
 CSV_FILE_ID = "1b0bStdF_PyJHiq9Ss1mw_XIKUre31fRg"
 NAME_FILE_ID = "1Wb7C8c-ZUvijet2q-Y82Cmb646_jWkZc"
 FAMOUS_POI_FILE_ID = "1d3S0zbggg_viqwkls3CxBZe5Vks66T4O"
+
 # ----------------- Download Files If Not Present ----------------------
 if not os.path.exists("fused_embedding.pkl"):
     gdown.download(f"https://drive.google.com/uc?id={EMBEDDING_FILE_ID}", "fused_embedding.pkl", quiet=False)
@@ -41,16 +42,8 @@ id_to_name = dict(zip(name_df['venueId'], name_df['venueName']))
 # Load famous POIs and merge
 if os.path.exists("poi_names_famous_nyc.csv"):
     famous_df = pd.read_csv("poi_names_famous_nyc.csv")
-    id_to_name.update(dict(zip(famous_df['poi_id'], famous_df['venueName'])))
-    metadata.update(famous_df.set_index('poi_id')[['category', 'lat', 'lon']].to_dict(orient='index'))
-    famous_ids = famous_df['poi_id'].tolist()
-    col_names = list(famous_df.columns)
-    pid_col = [col for col in col_names if "venueId" in col or "poi_id" in col][0]
-    name_col = [col for col in col_names if "venueName" in col or "name" in col][0]
-
-    id_to_name.update(dict(zip(famous_df[pid_col], famous_df[name_col])))
-    metadata.update(famous_df.set_index(pid_col)[['venueCategory', 'latitude', 'longitude']].rename(columns={'venueCategory': 'category', 'latitude': 'lat', 'longitude': 'lon'}).to_dict(orient='index'))
-    famous_ids = famous_df[pid_col].tolist()
+    id_to_name.update(dict(zip(famous_df['venueId'], famous_df['venueName'])))
+    famous_ids = famous_df['venueId'].tolist()
 else:
     famous_ids = []
 
@@ -131,21 +124,22 @@ def get_all_tourist_spots_from_poi(poi_id):
             continue
         entry = metadata[fid]
         lat, lon = entry.get('lat'), entry.get('lon')
-        if pd.isna(lat) or pd.isna(lon):
+        if lat is None or lon is None:
             continue
         try:
             dist = geodesic((source_lat, source_lon), (lat, lon)).km
+            if dist >= 0:
+                spots.append({
+                    "poi_id": fid,
+                    "name": id_to_name.get(fid, fid),
+                    "lat": lat,
+                    "lon": lon,
+                    "category": entry.get('category', 'Unknown'),
+                    "distance": dist,
+                    "reason": f"Famous place ({round(dist, 2)} km away)"
+                })
         except:
             continue
-        spots.append({
-            "poi_id": fid,
-            "name": id_to_name.get(fid, fid),
-            "lat": lat,
-            "lon": lon,
-            "category": entry.get('category', 'Unknown'),
-            "distance": dist,
-            "reason": f"Famous place ({round(dist, 2)} km away)"
-        })
     spots.sort(key=lambda x: x['distance'])
     return spots
 
